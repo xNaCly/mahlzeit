@@ -1,0 +1,6 @@
+services:
+  api:
+    build: ./api
+    hostname: api
+    ports:
+      - 8080:8080
