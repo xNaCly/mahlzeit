@@ -12,13 +12,17 @@ import (
 	"github.com/xnacly/mahlzeit/database"
 	"github.com/xnacly/mahlzeit/models"
 	"github.com/xnacly/mahlzeit/routes"
+
+	"log/slog"
 )
 
 func main() {
-	err := database.Get().Init()
+	db, err := database.New()
 	if err != nil {
-		log.Fatalln(err)
+		slog.Error("Failed to get a database instance", "err", err)
+		os.Exit(1)
 	}
+	database.Set(db)
 
 	app := fiber.New(fiber.Config{
 		AppName:           "mahlzeit",
@@ -40,6 +44,7 @@ func main() {
 			})
 		},
 	})
+
 	app.Use(cors.New(cors.Config{
 		AllowMethods:     "",
 		Next:             nil,
