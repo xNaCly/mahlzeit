@@ -3,26 +3,22 @@ package main
 import (
 	"errors"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/xnacly/mahlzeit/assert"
 	"github.com/xnacly/mahlzeit/database"
 	"github.com/xnacly/mahlzeit/models"
 	"github.com/xnacly/mahlzeit/routes"
-
-	"log/slog"
 )
 
 func main() {
 	db, err := database.New()
-	if err != nil {
-		slog.Error("Failed to get a database instance", "err", err)
-		os.Exit(1)
-	}
-	database.Set(db)
+	assert.NoError(err, "ctx", "Failed to get a database instance")
 
 	app := fiber.New(fiber.Config{
 		AppName:           "mahlzeit",
@@ -43,6 +39,11 @@ func main() {
 				Data:    nil,
 			})
 		},
+	})
+
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("db", db)
+		return c.Next()
 	})
 
 	app.Use(cors.New(cors.Config{
@@ -70,7 +71,8 @@ func main() {
 	signal.Notify(c, os.Interrupt, os.Kill)
 	go func() {
 		for range c {
-			database.Get().Destroy()
+			slog.Info("destroying database connection...")
+			assert.NoError(db.Destroy(), "ctx", "failed to destroy db connection")
 		}
 	}()
 }

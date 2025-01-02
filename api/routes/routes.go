@@ -14,13 +14,29 @@ type Route struct {
 var Routes = []Route{
 	{
 		Path:    "/ping/",
-		Method:  "GET",
 		Handler: handlers.Ping,
+	},
+	{
+		Path:    "/meals/",
+		Handler: handlers.Meals,
+	},
+	{
+		Path:    "/meals/:id",
+		Handler: handlers.MealById,
+	},
+	{
+		Path: "/",
+		Handler: func(c *fiber.Ctx) error {
+			return fiber.ErrNotFound
+		},
 	},
 }
 
 func RegisterRoutes(app *fiber.App, routes ...Route) {
 	for _, route := range routes {
+		if len(route.Method) == 0 {
+			route.Method = "GET"
+		}
 		app.Add(route.Method, route.Path, route.Handler)
 	}
 }

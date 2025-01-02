@@ -1,49 +1,55 @@
 package database
 
 import (
-	"fmt"
+	_ "embed"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"database/sql"
 	"log/slog"
 
 	_ "github.com/glebarez/go-sqlite"
+	"github.com/xnacly/mahlzeit/assert"
 )
+
+//go:embed init.sql
+var init_sql string
 
 type Database struct {
 	m    sync.Mutex
 	conn *sql.DB
 }
 
-var internal *Database = nil
-
-func Get() *Database {
-	return internal
-}
-
-func Set(d *Database) {
-	internal = d
-}
-
 func New() (*Database, error) {
-	config, err := os.UserConfigDir()
-	if err != nil {
-		return nil, err
+	var path string
+	if envPath := os.Getenv("MAHLZEIT_DB"); len(envPath) != 0 {
+		slog.Info("got MAHLZEIT_DB, switching to custom db path", "MAHLZEIT_DB", envPath)
+		absPath, err := filepath.Abs(envPath)
+		path = absPath
+		assert.NoError(err, "ctx", "tried to convert MAHLZEIT_DB to an absolute path")
+	} else {
+		config, err := os.UserConfigDir()
+		assert.NoError(err, "ctx", "tried to get UserConfigDir")
+		path = filepath.Join(config, "mahlzeit", "mahlzeit.db")
+		if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+			return nil, err
+		}
 	}
-	path := filepath.Join(config, "mahlzeit", "mahlzeit.db")
-	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
-		return nil, err
-	}
-	slog.Info(path)
+
+	slog.Info("backing database path", "path", path)
 	conn, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to connect to database: %w", err)
+	assert.NoError(err, "ctx", "tried to connect to database")
+	assert.NoError(conn.Ping(), "ctx", "tried to ping the database")
+	assert.True(len(init_sql) > 0, "ctx", "init.sql should not be empty")
+
+	for _, stmt := range strings.Split(init_sql, ";\n") {
+		slog.Info("executing init stmt", "stmt", stmt)
+		_, err := conn.Exec(strings.TrimSpace(stmt))
+		assert.NoError(err, "ctx", "attempted to execute stmt from init.sql", "stmt", stmt)
 	}
-	if err := conn.Ping(); err != nil {
-		return nil, err
-	}
+
 	return &Database{
 		conn: conn,
 		m:    sync.Mutex{},
@@ -52,5 +58,7 @@ func New() (*Database, error) {
 
 func (d *Database) Destroy() error {
 	d.m.Lock()
-	return d.conn.Close()
+	err := d.conn.Close()
+	d.m.Unlock()
+	return err
 }
