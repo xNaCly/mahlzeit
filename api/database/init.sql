@@ -17,4 +17,3 @@ CREATE TABLE IF NOT EXISTS ingredients (
     unit TEXT,
     amount REAL
 ) STRICT;
-

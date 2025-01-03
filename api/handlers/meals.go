@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"log/slog"
+	"maps"
+	"math/rand/v2"
+	"slices"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -45,6 +48,38 @@ func MealById(c *fiber.Ctx) error {
 		Message: "Got meal with id: " + strconv.FormatInt(int64(id), 10),
 		Data: fiber.Map{
 			"meal": meals,
+		},
+	})
+}
+
+func RandMeals(c *fiber.Ctx) error {
+	db := c.Locals("db").(*database.Database)
+	meals, err := db.MealsShallow()
+	if err != nil {
+		return err
+	}
+
+	if len(meals) < 7 {
+		return c.Status(fiber.StatusBadRequest).JSON(models.ApiResponse{
+			Success: true,
+			Code:    fiber.StatusBadRequest,
+			Message: "At least 7 meals are required to generate a weeks worth of meals",
+		})
+	}
+
+	mealIdToMeal := map[int]models.Meal{}
+
+	for len(mealIdToMeal) <= 7 {
+		randMeal := meals[rand.IntN(7)]
+		mealIdToMeal[randMeal.Id] = randMeal
+	}
+
+	return c.JSON(models.ApiResponse{
+		Success: true,
+		Code:    200,
+		Message: "Got random meals",
+		Data: fiber.Map{
+			"meals": slices.Collect(maps.Values(mealIdToMeal)),
 		},
 	})
 }
