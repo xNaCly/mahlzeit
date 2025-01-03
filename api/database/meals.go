@@ -1,18 +1,19 @@
 package database
 
 import (
+	"database/sql"
 	"log/slog"
 
 	"github.com/xnacly/mahlzeit/models"
 )
 
+// TODO: rework this to use a join
 func (d *Database) Meals() ([]models.Meal, error) {
 	meals, err := d.MealsShallow()
 	if err != nil {
 		slog.Error("Meals", "ctx", "failed to call Database.MealsShallow", "err", err)
 		return nil, err
 	}
-	d.m.Lock()
 	for i, meal := range meals {
 		ingredientsQuery, err := d.conn.Query("SELECT name, unit, amount FROM ingredients WHERE meal_id = ?", meal.Id)
 		if err != nil {
@@ -29,13 +30,11 @@ func (d *Database) Meals() ([]models.Meal, error) {
 			meals[i].Ingredients = append(meals[i].Ingredients, ingredient)
 		}
 	}
-	d.m.Unlock()
 	return meals, nil
 }
 
 // MealsShallow returns a list of found meals, without their ingredients
 func (d *Database) MealsShallow() ([]models.Meal, error) {
-	d.m.Lock()
 	mealsQuery, err := d.conn.Query("SELECT id, name, image, recipe FROM meals")
 	if err != nil {
 		slog.Error("MealsShallow", "ctx", "mealsQuery", "err", err)
@@ -50,7 +49,6 @@ func (d *Database) MealsShallow() ([]models.Meal, error) {
 			continue
 		}
 	}
-	d.m.Unlock()
 
 	return meals, nil
 }
@@ -80,4 +78,81 @@ func (d *Database) MealById(id int) (models.Meal, error) {
 	}
 
 	return meal, nil
+}
+
+func (d *Database) DeleteById(id int) error {
+	d.m.Lock()
+	defer d.m.Unlock()
+	_, err := d.conn.Exec("DELETE FROM ingredients WHERE meal_id = ?", id)
+	if err != nil {
+		slog.Error("DeleteById", "ctx", "DELETE FROM ingredients WHERE meal_id = ?", "id", id, "err", err)
+		return nil
+	}
+	_, err = d.conn.Exec("DELETE FROM meals WHERE id = ?")
+	return err
+}
+
+func (d *Database) NewMeal(m models.Meal) error {
+	d.m.Lock()
+	defer d.m.Unlock()
+	tx, err := d.conn.Begin()
+	if err != nil {
+		slog.Error("NewMeal", "ctx", "start transaction", "err", err)
+		return err
+	}
+
+	err = func(transaction *sql.Tx) error {
+		r, err := d.conn.Exec("INSERT INTO meals (name, image, recipe) VALUES(?, ?, ?)", m.Name, m.Image, m.Recipe)
+		if err != nil {
+			slog.Error("NewMeal", "ctx", "INSERT INTO meals (name, image, recipe) VALUES(?, ?, ?)", "Meal", m, "err", err)
+			return err
+		}
+
+		lastId, err := r.LastInsertId()
+		if err != nil {
+			return err
+		}
+
+		for _, ingredient := range m.Ingredients {
+			_, err := d.conn.Exec("INSERT INTO ingredients (meal_id, name, unit, amount) VALUES(?, ?, ?)", lastId, ingredient.Name, ingredient.Unit, ingredient.Amount)
+			if err != nil {
+				slog.Error("NewMeal", "ctx", "INSERT INTO ingredients (meal_id, name, unit, amount) VALUES(?, ?, ?)", "lastId", lastId, "ingredient", ingredient, "err", err)
+				return err
+			}
+		}
+		return nil
+	}(tx)
+
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (d *Database) NewIngredient(ingredient models.Ingredient, mealId int) error {
+	d.m.Lock()
+	defer d.m.Unlock()
+	_, err := d.conn.Exec("INSERT INTO ingredients (meal_id, name, unit, amount) VALUES(?, ?, ?)", mealId, ingredient.Name, ingredient.Unit, ingredient.Amount)
+	return err
+}
+
+func (d *Database) Ingredients() ([]models.Ingredient, error) {
+	ingredientsQuery, err := d.conn.Query("SELECT name, unit, amount FROM ingredients")
+	ingredients := []models.Ingredient{}
+	if err != nil {
+		slog.Error("Ingredients", "ctx", "SELECT name, unit, amount FROM ingredients", "err", err)
+		return []models.Ingredient{}, err
+	}
+	for ingredientsQuery.Next() {
+		ingredient := models.Ingredient{}
+		err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Name, &ingredient.Unit)
+		if err != nil {
+			slog.Error("Ingredients", "ctx", "ingredientsQuery.Scan", "err", err)
+			return []models.Ingredient{}, err
+		}
+		ingredients = append(ingredients, ingredient)
+	}
+	return ingredients, nil
 }

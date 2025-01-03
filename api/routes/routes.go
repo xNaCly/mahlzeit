@@ -21,8 +21,17 @@ var Routes = []Route{
 		Handler: handlers.Meals,
 	},
 	{
+		Path:    "/meals/random",
+		Handler: handlers.RandMeals,
+	},
+	{
 		Path:    "/meals/:id",
 		Handler: handlers.MealById,
+	},
+	{
+		Path:    "/meals/",
+		Handler: handlers.NewMeal,
+		Method:  fiber.MethodPost,
 	},
 	{
 		Path: "/",

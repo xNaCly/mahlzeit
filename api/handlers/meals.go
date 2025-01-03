@@ -14,9 +14,9 @@ import (
 
 func Meals(c *fiber.Ctx) error {
 	db := c.Locals("db").(*database.Database)
-	meals, err := db.Meals()
+	meals, err := db.MealsShallow()
 	if err != nil {
-		slog.Error("mealById", "ctx", "failed to call Database.Meals", "err", err)
+		slog.Error("meals", "ctx", "failed to call Database.Meals", "err", err)
 		return err
 	}
 
@@ -81,5 +81,23 @@ func RandMeals(c *fiber.Ctx) error {
 		Data: fiber.Map{
 			"meals": slices.Collect(maps.Values(mealIdToMeal)),
 		},
+	})
+}
+
+func NewMeal(c *fiber.Ctx) error {
+	meal := models.Meal{}
+	if err := c.BodyParser(&meal); err != nil {
+		slog.Error("newMeal", "ctx", "failed to parse body", "err", err, "body", c.Body())
+		return fiber.ErrBadRequest
+	}
+	db := c.Locals("db").(*database.Database)
+	if err := db.NewMeal(meal); err != nil {
+		slog.Error("newMeal", "ctx", "failed to insert meal", "err", err, "meal", meal)
+		return fiber.ErrBadRequest
+	}
+	return c.Status(fiber.StatusCreated).JSON(models.ApiResponse{
+		Success: true,
+		Code:    fiber.StatusCreated,
+		Message: "Created meal",
 	})
 }

@@ -4,7 +4,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS meals (
     id INTEGER PRIMARY KEY,
-    name TEXT,
+    name TEXT UNIQUE,
     image TEXT,
     recipe TEXT
 ) STRICT;
