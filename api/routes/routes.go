@@ -42,10 +42,11 @@ var Routes = []Route{
 }
 
 func RegisterRoutes(app *fiber.App, routes ...Route) {
+	apiGroup := app.Group("/api")
 	for _, route := range routes {
 		if len(route.Method) == 0 {
 			route.Method = "GET"
 		}
-		app.Add(route.Method, route.Path, route.Handler)
+		apiGroup.Add(route.Method, route.Path, route.Handler)
 	}
 }
