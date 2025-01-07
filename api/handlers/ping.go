@@ -10,6 +10,6 @@ func Ping(c *fiber.Ctx) error {
 		Success: true,
 		Code:    200,
 		Message: "pong",
-		Data:    nil,
+		Data:    "ping",
 	})
 }

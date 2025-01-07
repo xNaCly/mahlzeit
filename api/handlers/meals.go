@@ -24,9 +24,7 @@ func Meals(c *fiber.Ctx) error {
 		Success: true,
 		Code:    200,
 		Message: "Got meals",
-		Data: fiber.Map{
-			"meals": meals,
-		},
+		Data:    meals,
 	})
 }
 
@@ -46,9 +44,7 @@ func MealById(c *fiber.Ctx) error {
 		Success: true,
 		Code:    200,
 		Message: "Got meal with id: " + strconv.FormatInt(int64(id), 10),
-		Data: fiber.Map{
-			"meal": meals,
-		},
+		Data:    meals,
 	})
 }
 
@@ -69,7 +65,7 @@ func RandMeals(c *fiber.Ctx) error {
 
 	mealIdToMeal := map[int]models.Meal{}
 
-	for len(mealIdToMeal) <= 7 {
+	for len(mealIdToMeal) < 7 {
 		randMeal := meals[rand.IntN(7)]
 		mealIdToMeal[randMeal.Id] = randMeal
 	}
@@ -78,9 +74,7 @@ func RandMeals(c *fiber.Ctx) error {
 		Success: true,
 		Code:    200,
 		Message: "Got random meals",
-		Data: fiber.Map{
-			"meals": slices.Collect(maps.Values(mealIdToMeal)),
-		},
+		Data:    slices.Collect(maps.Values(mealIdToMeal)),
 	})
 }
 

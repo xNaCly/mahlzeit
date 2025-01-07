@@ -7,7 +7,6 @@ import (
 	"github.com/xnacly/mahlzeit/models"
 )
 
-// TODO: rework this to use a join
 func (d *Database) Meals() ([]models.Meal, error) {
 	meals, err := d.MealsShallow()
 	if err != nil {
@@ -44,10 +43,11 @@ func (d *Database) MealsShallow() ([]models.Meal, error) {
 	meals := make([]models.Meal, 0, 16)
 	for mealsQuery.Next() {
 		m := models.Meal{}
-		if err := mealsQuery.Scan(&m.Id, &m.Name, &m.Image, &m.Ingredients); err != nil {
+		if err := mealsQuery.Scan(&m.Id, &m.Name, &m.Image, &m.Recipe); err != nil {
 			slog.Error("MealsShallow", "ctx", "mealsQuery.Scan", "err", err)
 			continue
 		}
+		meals = append(meals, m)
 	}
 
 	return meals, nil
@@ -57,7 +57,7 @@ func (d *Database) MealById(id int) (models.Meal, error) {
 	empty := models.Meal{}
 	mealQuery := d.conn.QueryRow("SELECT id, name, image, recipe FROM meals WHERE id = ?", id)
 	meal := models.Meal{}
-	if err := mealQuery.Scan(); err != nil {
+	if err := mealQuery.Scan(&meal.Id, &meal.Name, &meal.Image, &meal.Recipe); err != nil {
 		slog.Error("MealById", "ctx", "mealsQuery.Scan", "err", err)
 		return empty, err
 	}
@@ -69,7 +69,7 @@ func (d *Database) MealById(id int) (models.Meal, error) {
 	}
 	for ingredientsQuery.Next() {
 		ingredient := models.Ingredient{}
-		err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Name, &ingredient.Unit)
+		err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Unit, &ingredient.Amount)
 		if err != nil {
 			slog.Error("MealById", "ctx", "ingredientsQuery.Scan", "err", err)
 			return empty, err

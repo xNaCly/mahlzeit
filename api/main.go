@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"log"
 	"log/slog"
 	"os"
@@ -17,7 +18,9 @@ import (
 )
 
 func main() {
-	db, err := database.New()
+	withDefaultFlag := flag.Bool("withDefault", false, "insert default meals into database")
+	flag.Parse()
+	db, err := database.New(*withDefaultFlag)
 	assert.NoError(err, "ctx", "Failed to get a database instance")
 
 	app := fiber.New(fiber.Config{

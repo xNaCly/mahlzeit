@@ -1,15 +1,15 @@
 package models
 
 type Meal struct {
-	Id          int
-	Name        string
-	Ingredients []Ingredient
-	Image       string // image url, maybe stockfoto integration?
-	Recipe      string // typically an url
+	Id          int          `json:"id"`
+	Name        string       `json:"name"`
+	Ingredients []Ingredient `json:"ingredients,omitempty"`
+	Image       string       `json:"image"`  // image url, maybe stockfoto integration?
+	Recipe      string       `json:"recipe"` // typically an url
 }
 
 type Ingredient struct {
-	Name   string
-	Unit   string
-	Amount int
+	Name   string `json:"name"`
+	Unit   string `json:"unit"`
+	Amount int    `json:"amount"`
 }

@@ -17,12 +17,15 @@ import (
 //go:embed init.sql
 var init_sql string
 
+//go:embed default.sql
+var default_sql string
+
 type Database struct {
 	m    sync.Mutex
 	conn *sql.DB
 }
 
-func New() (*Database, error) {
+func New(withDefault bool) (*Database, error) {
 	var path string
 	if envPath := os.Getenv("MAHLZEIT_DB"); len(envPath) != 0 {
 		slog.Info("got MAHLZEIT_DB, switching to custom db path", "MAHLZEIT_DB", envPath)
@@ -48,6 +51,14 @@ func New() (*Database, error) {
 		slog.Info("executing init stmt", "stmt", stmt)
 		_, err := conn.Exec(strings.TrimSpace(stmt))
 		assert.NoError(err, "ctx", "attempted to execute stmt from init.sql", "stmt", stmt)
+	}
+
+	if withDefault {
+		slog.Info("got withDefault option, inserting default meals")
+		for _, stmt := range strings.Split(default_sql, ";\n") {
+			_, err := conn.Exec(strings.TrimSpace(stmt))
+			assert.NoError(err, "ctx", "attempted to execute stmt from default.sql", "stmt", stmt)
+		}
 	}
 
 	return &Database{

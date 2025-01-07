@@ -14,6 +14,6 @@ export async function mahlzeitFetch<T>(
     if (response.status > 299) {
       rej(`got non 200 code: ${response.status}`);
     }
-    res(await response.json());
+    res((await response.json())["data"] as T);
   });
 }
