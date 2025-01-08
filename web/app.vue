@@ -36,7 +36,6 @@ import { mahlzeitFetch } from "~/fetch";
 import type { Meal } from "~/types";
 
 const meals = ref<Array<{ lock: boolean; meal: Meal }>>([]);
-const toast = useToast();
 
 async function random(): Promise<Array<Meal>> {
   return await mahlzeitFetch<Meal[]>("meals/random");

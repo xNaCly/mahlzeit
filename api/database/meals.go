@@ -14,14 +14,14 @@ func (d *Database) Meals() ([]models.Meal, error) {
 		return nil, err
 	}
 	for i, meal := range meals {
-		ingredientsQuery, err := d.conn.Query("SELECT name, unit, amount FROM ingredients WHERE meal_id = ?", meal.Id)
+		ingredientsQuery, err := d.conn.Query("SELECT name, unit, kind, amount FROM ingredients WHERE meal_id = ?", meal.Id)
 		if err != nil {
 			slog.Error("Meals", "ctx", "ingredientsQuery", "err", err)
 			continue
 		}
 		for ingredientsQuery.Next() {
 			ingredient := models.Ingredient{}
-			err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Name, &ingredient.Unit)
+			err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Unit, &ingredient.Kind, &ingredient.Amount)
 			if err != nil {
 				slog.Error("Meals", "ctx", "ingredientsQuery.Scan", "err", err)
 				continue
@@ -34,7 +34,7 @@ func (d *Database) Meals() ([]models.Meal, error) {
 
 // MealsShallow returns a list of found meals, without their ingredients
 func (d *Database) MealsShallow() ([]models.Meal, error) {
-	mealsQuery, err := d.conn.Query("SELECT id, name, image, recipe FROM meals")
+	mealsQuery, err := d.conn.Query("SELECT id, name, minutes, image, recipe FROM meals")
 	if err != nil {
 		slog.Error("MealsShallow", "ctx", "mealsQuery", "err", err)
 		return []models.Meal{}, nil
@@ -43,7 +43,7 @@ func (d *Database) MealsShallow() ([]models.Meal, error) {
 	meals := make([]models.Meal, 0, 16)
 	for mealsQuery.Next() {
 		m := models.Meal{}
-		if err := mealsQuery.Scan(&m.Id, &m.Name, &m.Image, &m.Recipe); err != nil {
+		if err := mealsQuery.Scan(&m.Id, &m.Name, &m.Minutes, &m.Image, &m.Recipe); err != nil {
 			slog.Error("MealsShallow", "ctx", "mealsQuery.Scan", "err", err)
 			continue
 		}
@@ -55,21 +55,21 @@ func (d *Database) MealsShallow() ([]models.Meal, error) {
 
 func (d *Database) MealById(id int) (models.Meal, error) {
 	empty := models.Meal{}
-	mealQuery := d.conn.QueryRow("SELECT id, name, image, recipe FROM meals WHERE id = ?", id)
+	mealQuery := d.conn.QueryRow("SELECT id, name, minutes, image, recipe FROM meals WHERE id = ?", id)
 	meal := models.Meal{}
-	if err := mealQuery.Scan(&meal.Id, &meal.Name, &meal.Image, &meal.Recipe); err != nil {
+	if err := mealQuery.Scan(&meal.Id, &meal.Name, &meal.Minutes, &meal.Image, &meal.Recipe); err != nil {
 		slog.Error("MealById", "ctx", "mealsQuery.Scan", "err", err)
 		return empty, err
 	}
 
-	ingredientsQuery, err := d.conn.Query("SELECT name, unit, amount FROM ingredients WHERE meal_id = ?", meal.Id)
+	ingredientsQuery, err := d.conn.Query("SELECT name, unit, kind, amount FROM ingredients WHERE meal_id = ?", meal.Id)
 	if err != nil {
 		slog.Error("MealById", "ctx", "ingredientsQuery", "err", err)
 		return empty, err
 	}
 	for ingredientsQuery.Next() {
 		ingredient := models.Ingredient{}
-		err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Unit, &ingredient.Amount)
+		err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Unit, &ingredient.Kind, &ingredient.Amount)
 		if err != nil {
 			slog.Error("MealById", "ctx", "ingredientsQuery.Scan", "err", err)
 			return empty, err
@@ -102,9 +102,9 @@ func (d *Database) NewMeal(m models.Meal) error {
 	}
 
 	err = func(transaction *sql.Tx) error {
-		r, err := d.conn.Exec("INSERT INTO meals (name, image, recipe) VALUES(?, ?, ?)", m.Name, m.Image, m.Recipe)
+		r, err := d.conn.Exec("INSERT INTO meals (name, minutes, image, recipe) VALUES(?, ?, ?, ?)", m.Name, m.Minutes, m.Image, m.Recipe)
 		if err != nil {
-			slog.Error("NewMeal", "ctx", "INSERT INTO meals (name, image, recipe) VALUES(?, ?, ?)", "Meal", m, "err", err)
+			slog.Error("NewMeal", "ctx", "INSERT INTO meals (name, minutes, image, recipe) VALUES(?, ?, ?, ?)", "Meal", m, "err", err)
 			return err
 		}
 
@@ -114,9 +114,7 @@ func (d *Database) NewMeal(m models.Meal) error {
 		}
 
 		for _, ingredient := range m.Ingredients {
-			_, err := d.conn.Exec("INSERT INTO ingredients (meal_id, name, unit, amount) VALUES(?, ?, ?)", lastId, ingredient.Name, ingredient.Unit, ingredient.Amount)
-			if err != nil {
-				slog.Error("NewMeal", "ctx", "INSERT INTO ingredients (meal_id, name, unit, amount) VALUES(?, ?, ?)", "lastId", lastId, "ingredient", ingredient, "err", err)
+			if err := d.NewIngredient(ingredient, lastId); err != nil {
 				return err
 			}
 		}
@@ -131,23 +129,23 @@ func (d *Database) NewMeal(m models.Meal) error {
 	return tx.Commit()
 }
 
-func (d *Database) NewIngredient(ingredient models.Ingredient, mealId int) error {
+func (d *Database) NewIngredient(ingredient models.Ingredient, mealId int64) error {
 	d.m.Lock()
 	defer d.m.Unlock()
-	_, err := d.conn.Exec("INSERT INTO ingredients (meal_id, name, unit, amount) VALUES(?, ?, ?)", mealId, ingredient.Name, ingredient.Unit, ingredient.Amount)
+	_, err := d.conn.Exec("INSERT INTO ingredients (meal_id, name, unit, kind, amount) VALUES(?, ?, ?, ?)", mealId, ingredient.Name, ingredient.Unit, ingredient.Kind, ingredient.Amount)
 	return err
 }
 
 func (d *Database) Ingredients() ([]models.Ingredient, error) {
-	ingredientsQuery, err := d.conn.Query("SELECT name, unit, amount FROM ingredients")
+	ingredientsQuery, err := d.conn.Query("SELECT name, unit, kind, amount FROM ingredients")
 	ingredients := []models.Ingredient{}
 	if err != nil {
-		slog.Error("Ingredients", "ctx", "SELECT name, unit, amount FROM ingredients", "err", err)
+		slog.Error("Ingredients", "ctx", "SELECT name, unit, kind, amount FROM ingredients", "err", err)
 		return []models.Ingredient{}, err
 	}
 	for ingredientsQuery.Next() {
 		ingredient := models.Ingredient{}
-		err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Name, &ingredient.Unit)
+		err := ingredientsQuery.Scan(&ingredient.Name, &ingredient.Unit, &ingredient.Kind, &ingredient.Amount)
 		if err != nil {
 			slog.Error("Ingredients", "ctx", "ingredientsQuery.Scan", "err", err)
 			return []models.Ingredient{}, err

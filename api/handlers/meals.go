@@ -35,16 +35,18 @@ func MealById(c *fiber.Ctx) error {
 		return fiber.ErrBadRequest
 	}
 	db := c.Locals("db").(*database.Database)
-	meals, err := db.MealById(id)
+	meal, err := db.MealById(id)
 	if err != nil {
 		return err
 	}
+
+	meal.Cost = models.Cost(meal)
 
 	return c.JSON(models.ApiResponse{
 		Success: true,
 		Code:    200,
 		Message: "Got meal with id: " + strconv.FormatInt(int64(id), 10),
-		Data:    meals,
+		Data:    meal,
 	})
 }
 

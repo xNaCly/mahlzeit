@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { mahlzeitFetch } from "~/fetch";
+import { h, resolveComponent } from "vue";
 import type { Ingredient, Meal } from "~/types";
+const UBadge = resolveComponent("UBadge");
 
 const slideoverOpen = ref(false);
 
@@ -13,10 +15,50 @@ const ingredients = ref<Array<Ingredient>>();
 const emit = defineEmits(["change"]);
 
 onMounted(async () => {
-  ingredients.value = (
-    await mahlzeitFetch<Meal>("meals/" + mealAndLock.meal.id)
-  ).ingredients;
+  mealAndLock.meal = await mahlzeitFetch<Meal>("meals/" + mealAndLock.meal.id);
 });
+
+const columns = [
+  {
+    accessorKey: "name",
+    header: "Name",
+  },
+  {
+    accessorKey: "kind",
+    header: "Kind",
+    cell: ({ row }: any) => {
+      let color = (
+        {
+          "Oils & Vinegar": "primary",
+          Spices: "secondary",
+          Vegetables: "success",
+          Diary: "info",
+          Carbs: "warning",
+          "Meat & Fish": "error",
+          Sauces: "neutral",
+        } as Record<string, string>
+      )[row.getValue("kind")];
+
+      return h(
+        UBadge,
+        { class: "capitalise", variant: "subtle", color },
+        row.getValue("kind")
+      );
+    },
+  },
+  {
+    accessorKey: "amount",
+    header: "Amount",
+    cell: ({ row }: any) => {
+      return `${row.getValue("amount")}${row.getValue("unit")}`;
+    },
+  },
+  {
+    accessorKey: "unit",
+    header: "",
+    cell: ({ row }: any) => {},
+  },
+];
 </script>
 <template>
   <UCard class="m-1">
@@ -45,11 +87,15 @@ onMounted(async () => {
     <template #body>
       <UTable
         class="border border-gray-300 rounded"
-        :data="
-          ingredients?.map((i) => {
-            return { name: i.name, amount: `${i.amount}${i.unit}` };
-          })
-        "
+        :data="[
+          { meta: 'Time to cook', value: mealAndLock.meal.minutes + 'min' },
+          { meta: 'Cost & Complexity', value: `${mealAndLock.meal.cost}/100` },
+        ]"
+      />
+      <UTable
+        class="border border-gray-300 rounded mt-2"
+        :columns="columns"
+        :data="mealAndLock.meal.ingredients"
       />
     </template>
   </USlideover>
