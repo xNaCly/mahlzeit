@@ -6,17 +6,14 @@ const UBadge = resolveComponent("UBadge");
 
 const slideoverOpen = ref(false);
 
-const { mealAndLock } = defineProps<{
+const mealToDay = ["Mon", "Tue", "Wen", "Thu", "Fri", "Sat", "Sun"];
+
+const { mealAndLock, index } = defineProps<{
   mealAndLock: { lock: boolean; meal: Meal };
+  index: number;
 }>();
 
-const ingredients = ref<Array<Ingredient>>();
-
 const emit = defineEmits(["change"]);
-
-onMounted(async () => {
-  mealAndLock.meal = await mahlzeitFetch<Meal>("meals/" + mealAndLock.meal.id);
-});
 
 const columns = [
   {
@@ -63,13 +60,22 @@ const columns = [
 <template>
   <UCard class="m-1">
     <div class="flex flex-row justify-between">
-      <UButton
-        @click="slideoverOpen = true"
-        class="text-sm cursor-pointer"
-        variant="ghost"
-        color="neutral"
-        :label="mealAndLock.meal.name"
-      />
+      <div>
+        <UButton
+          disabled
+          class="text-sm cursor-pointer mr-1"
+          variant="soft"
+          color="neutral"
+          :label="mealToDay[index]"
+        />
+        <UButton
+          @click="slideoverOpen = true"
+          class="text-sm cursor-pointer"
+          variant="link"
+          color="primary"
+          :label="mealAndLock.meal.name"
+        />
+      </div>
       <div class="flex items-center justify-center" @click.prevent="">
         <USwitch
           size="lg"
@@ -89,7 +95,6 @@ const columns = [
         class="border border-gray-300 rounded"
         :data="[
           { meta: 'Time to cook', value: mealAndLock.meal.minutes + 'min' },
-          { meta: 'Cost & Complexity', value: `${mealAndLock.meal.cost}/100` },
         ]"
       />
       <UTable

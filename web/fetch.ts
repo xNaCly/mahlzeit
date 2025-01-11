@@ -1,11 +1,10 @@
-const SERVER = "http://localhost:8080/api/";
-
 export async function mahlzeitFetch<T>(
   path: string,
   body?: BodyInit
 ): Promise<T> {
   return new Promise(async (res, rej) => {
-    let response = await fetch(SERVER + path, {
+    const config = useRuntimeConfig();
+    let response = await fetch(config.public.server + path, {
       body: body,
       headers: {
         "Content-Type": "application/json",

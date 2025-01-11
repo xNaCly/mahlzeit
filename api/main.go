@@ -1,21 +1,27 @@
 package main
 
 import (
-	"errors"
+	"embed"
+	_ "embed"
 	"flag"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/xnacly/mahlzeit/assert"
 	"github.com/xnacly/mahlzeit/database"
 	"github.com/xnacly/mahlzeit/models"
 	"github.com/xnacly/mahlzeit/routes"
 )
+
+//go:embed dist
+var WEB_FS embed.FS
 
 func main() {
 	withDefaultFlag := flag.Bool("withDefault", false, "insert default meals into database")
@@ -27,26 +33,17 @@ func main() {
 		AppName:           "mahlzeit",
 		ServerHeader:      "mahlzeit",
 		EnablePrintRoutes: true,
+		DisableKeepalive:  true,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			code := fiber.StatusInternalServerError
-
-			var e *fiber.Error
-			if errors.As(err, &e) {
-				code = e.Code
+			if val, ok := err.(*fiber.Error); ok {
+				c.Status(val.Code).JSON(models.ApiResponse{
+					Success: false,
+					Message: val.Message,
+				})
+				return nil
 			}
-
-			return c.Status(code).JSON(models.ApiResponse{
-				Success: false,
-				Code:    code,
-				Message: err.Error(),
-				Data:    nil,
-			})
+			return nil
 		},
-	})
-
-	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("db", db)
-		return c.Next()
 	})
 
 	app.Use(cors.New(cors.Config{
@@ -59,15 +56,21 @@ func main() {
 		MaxAge:           0,
 	}))
 
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("db", db)
+		return c.Next()
+	})
+
 	app.Use(logger.New(logger.Config{
 		TimeFormat: "2006-01-02 15:04:05",
 	}))
 
 	routes.RegisterRoutes(app, routes.Routes...)
 
-	app.Use(func(c *fiber.Ctx) error {
-		return fiber.NewError(404, "Requested ressource not found")
-	})
+	app.Use("/", filesystem.New(filesystem.Config{
+		Root:       http.FS(WEB_FS),
+		PathPrefix: "/dist",
+	}))
 
 	log.Fatal(app.Listen(":8080"))
 	c := make(chan os.Signal, 1)

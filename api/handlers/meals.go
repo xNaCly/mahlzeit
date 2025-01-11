@@ -14,7 +14,7 @@ import (
 
 func Meals(c *fiber.Ctx) error {
 	db := c.Locals("db").(*database.Database)
-	meals, err := db.MealsShallow()
+	meals, err := db.Meals()
 	if err != nil {
 		slog.Error("meals", "ctx", "failed to call Database.Meals", "err", err)
 		return err
@@ -40,8 +40,6 @@ func MealById(c *fiber.Ctx) error {
 		return err
 	}
 
-	meal.Cost = models.Cost(meal)
-
 	return c.JSON(models.ApiResponse{
 		Success: true,
 		Code:    200,
@@ -52,7 +50,7 @@ func MealById(c *fiber.Ctx) error {
 
 func RandMeals(c *fiber.Ctx) error {
 	db := c.Locals("db").(*database.Database)
-	meals, err := db.MealsShallow()
+	meals, err := db.Meals()
 	if err != nil {
 		return err
 	}

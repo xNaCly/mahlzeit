@@ -13,40 +13,37 @@ type Route struct {
 
 var Routes = []Route{
 	{
-		Path:    "/ping/",
+		Path:    "/api/ping/",
 		Handler: handlers.Ping,
 	},
 	{
-		Path:    "/meals/",
+		Path:    "/api/meals/",
 		Handler: handlers.Meals,
 	},
 	{
-		Path:    "/meals/random",
+		Path:    "/api/meals/random",
 		Handler: handlers.RandMeals,
 	},
 	{
-		Path:    "/meals/:id",
+		Path:    "/api/meals/summary",
+		Handler: handlers.Summary,
+	},
+	{
+		Path:    "/api/meals/:id",
 		Handler: handlers.MealById,
 	},
 	{
-		Path:    "/meals/",
+		Path:    "/api/meals/",
 		Handler: handlers.NewMeal,
 		Method:  fiber.MethodPost,
-	},
-	{
-		Path: "/",
-		Handler: func(c *fiber.Ctx) error {
-			return fiber.ErrNotFound
-		},
 	},
 }
 
 func RegisterRoutes(app *fiber.App, routes ...Route) {
-	apiGroup := app.Group("/api")
 	for _, route := range routes {
 		if len(route.Method) == 0 {
 			route.Method = "GET"
 		}
-		apiGroup.Add(route.Method, route.Path, route.Handler)
+		app.Add(route.Method, route.Path, route.Handler)
 	}
 }
