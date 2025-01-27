@@ -10,6 +10,7 @@ import (
 )
 
 type summary struct {
+	Meals             []string
 	IngredientsByKind map[models.Kind][]models.Ingredient `json:"ingredients_by_kind"`
 }
 
@@ -20,6 +21,7 @@ func Summary(c *fiber.Ctx) error {
 	}
 	db := c.Locals("db").(*database.Database)
 	s := summary{
+		Meals:             []string{},
 		IngredientsByKind: map[models.Kind][]models.Ingredient{},
 	}
 	for _, rawId := range strings.Split(ids, ",") {
@@ -32,14 +34,46 @@ func Summary(c *fiber.Ctx) error {
 		if err != nil {
 			return fiber.ErrNotFound
 		}
+		s.Meals = append(s.Meals, meal.Name)
 		for _, i := range meal.Ingredients {
 			s.IngredientsByKind[i.Kind] = append(s.IngredientsByKind[i.Kind], i)
 		}
 	}
-	return c.JSON(models.ApiResponse{
-		Success: true,
-		Code:    200,
-		Message: "pong",
-		Data:    s,
-	})
+	if c.QueryBool("text", false) {
+		b := strings.Builder{}
+		b.WriteString("## Meals:\n")
+		for i, meal := range s.Meals {
+			b.WriteString(meal)
+			if i != len(s.Meals) {
+				b.WriteRune('\n')
+			}
+		}
+		b.WriteString("## Ingredients:\n")
+		for group, ingredients := range s.IngredientsByKind {
+			b.WriteString("### ")
+			b.WriteString(string(group))
+			b.WriteRune('\n')
+			for i, ingredient := range ingredients {
+				b.WriteString("- [ ] ")
+				b.WriteString(ingredient.Name)
+				b.WriteString(" (")
+				b.WriteString(strconv.FormatInt(int64(ingredient.Amount), 10))
+				b.WriteString(ingredient.Unit)
+				b.WriteRune(')')
+
+				if i != len(ingredients) {
+					b.WriteRune('\n')
+				}
+			}
+		}
+		_, err := c.Status(fiber.StatusOK).WriteString(b.String())
+		return err
+	} else {
+		return c.JSON(models.ApiResponse{
+			Success: true,
+			Code:    200,
+			Message: "pong",
+			Data:    s,
+		})
+	}
 }
